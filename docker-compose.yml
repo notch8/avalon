@@ -2,42 +2,27 @@ version: '2'
 
 volumes:
   streaming:
-  database:
   fedora:
   work:
   solr:
 
 services:
-  db:
-    image: avalonmediasystem/db:fedora4
-    volumes:
-      - database:/data
-    environment:
-      - AVALON_DB_PASSWORD=avalondb
-      - FEDORA_DB_PASSWORD
-      - PGDATA=/data
-      - POSTGRES_USER=postgres
-    ports:
-      - "5432:5432"
   fedora:
-    image: avalonmediasystem/fedora:4.7.x
-    depends_on:
-      - db
+    image: avalonmediasystem/fedora:4.7.4
     volumes:
       - fedora:/data
+    environment:
+      - JAVA_OPTIONS=${JAVA_OPTIONS} -Dfcrepo.modeshape.configuration=classpath:/config/file-simple/repository.json -Dfcrepo.home=/data
     ports:
       - "8984:8080"
   solr:
-    image: avalonmediasystem/solr:latest
+    image: solr:7.2.1-alpine
     ports:
       - "8983:8983"
     volumes:
       - solr:/opt/solr/server/solr/mycores
-    entrypoint:
-      - docker-entrypoint.sh
-      - solr-precreate
-      - avalon
-      - /opt/solr/avalon_conf
+      - ./solr/config:/opt/solr/avalon_conf
+    command: bash -ce "precreate-core avalon /opt/solr/avalon_conf; precreate-core hydra-test /opt/solr/avalon_conf; solr-foreground"
   matterhorn:
     image: avalonmediasystem/matterhorn
     volumes:
@@ -60,7 +45,6 @@ services:
     image: avalonmediasystem/avalon:6.x-dev
     command: "/rails_init-dev.sh"
     depends_on:
-      - db
       - fedora
       - solr
       - redis
@@ -71,7 +55,6 @@ services:
       - AVALON_DB_PASSWORD=avalondb
       - SETTINGS__DOMAIN=http://localhost:3000
       - CONTROLLED_VOCABULARY=config/controlled_vocabulary.yml
-      - DATABASE_URL=postgres://avalon:${AVALON_DB_PASSWORD}@db/avalon
       - SETTINGS__DROPBOX__PATH=/masterfiles
       - SETTINGS__DROPBOX__UPLOAD_URI=./masterfiles
       - EMAIL_COMMENTS
@@ -111,9 +94,27 @@ services:
       - Z3950_PORT
     volumes:
       - ./masterfiles:/masterfiles
-      - ./gems:/gems
+      - ./gems:/home/app/gems
       - .:/home/app/avalon
     ports:
       - "3000:80"
     stdin_open: true
     tty: true
+  avalon-test:
+    image: avalonmediasystem/avalon:6.x-dev
+    command: "/rails_init-dev.sh"
+    depends_on:
+      - fedora
+      - solr
+      - redis
+    environment:
+      - RAILS_ENV=test
+      - FEDORA_URL=http://fedoraAdmin:fedoraAdmin@fedora:8080/fedora/rest/test
+      - SOLR_URL=http://solr:8983/solr/hydra-test
+      - SETTINGS__REDIS__HOST=redis
+      - SETTINGS__REDIS__PORT=6379
+      - FFMPEG_PATH=/usr/bin/ffmpeg
+    volumes:
+      - ./masterfiles:/masterfiles
+      - ./gems:/home/app/gems
+      - .:/home/app/avalon
