@@ -21,11 +21,15 @@ class User < ActiveRecord::Base
   # end
   # Connects this user object to Blacklights Bookmarks.
   include Blacklight::User
+
   # Include default devise modules. Others available are:
-  # :confirmable, :lockable, :timeoutable and :omniauthable
-  # devise :database_authenticatable, :registerable,
-  #        :recoverable, :rememberable, :trackable, :validatable
-  devise :omniauthable
+  # :confirmable, :lockable, :timeoutable
+  # Registration is controlled via settings.yml
+  devise_list = [ :database_authenticatable, :invitable, :omniauthable,
+                  :recoverable, :rememberable, :trackable, :validatable ]
+  devise_list << :registerable if Settings.auth.registerable
+
+  devise *devise_list
 
   validates :username, presence: true, uniqueness: { case_sensitive: false }
   validates :email, presence: true, uniqueness: { case_sensitive: false }
