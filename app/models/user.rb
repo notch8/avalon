@@ -55,9 +55,9 @@ class User < ActiveRecord::Base
   end
 
   def self.find_or_create_by_username_or_email(username, email)
-    self.where(username: username).first ||
-    self.where(email: email).first ||
-    self.create(username: username, email: email)
+    self.find_by(username: username) ||
+    self.find_by(email: username) ||
+    self.create(username: username, email: username, password: Devise.friendly_token[0, 20])
   end
 
   def self.from_api_token(token)
@@ -67,13 +67,13 @@ class User < ActiveRecord::Base
   def self.find_for_generic(access_token, signed_in_resource=nil)
     username = access_token.uid
     email = access_token.info.email
-    User.find_by(username: username) || User.find_by(email: email) || User.create(username: username, email: email)
+    self.find_or_create_by_username_or_email(username, email)
   end
 
   def self.find_for_identity(access_token, signed_in_resource=nil)
     username = access_token.info['email']
     # Use email for both username and email for the created user
-    User.find_by(username: username) || User.find_by(email: username) || User.create(username: username, email: username)
+    self.find_or_create_by_username_or_email(username, username)
   end
 
   def self.find_for_lti(auth_hash, signed_in_resource=nil)
